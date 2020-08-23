@@ -5,6 +5,9 @@
 #include <string>
 #include <sstream>
 #include <atomic>
+#include <vector>
+#include <future>
+#include <condition_variable>
 
 using namespace std;
 
@@ -12,6 +15,11 @@ atomic<int> x(0);
 
 mutex mtxA;
 mutex mtxB;
+condition_variable cv;
+
+bool xGreaterThan10() {
+    return x > 10;
+}
 
 void helper(string s) {
 	auto myid = this_thread::get_id();
@@ -26,11 +34,17 @@ void helper(string s) {
 
     int y = 0;
     while ((y = try_lock(mtxA, mtxB)) != -1) {
-        cout << "found lock " << y << " " << x++ << endl;
+        cout << "failed lock " << y << " " << x++ << endl;
         this_thread::sleep_for(chrono::seconds(1));
     }
 
     this_thread::sleep_for(chrono::seconds(2));
+
+    if (x > 5) {
+        // it will early wake up, but the CV will lock back
+        cv.notify_one();
+    }
+
     mtxA.unlock();
     this_thread::sleep_for(chrono::seconds(2));
     mtxB.unlock();
@@ -38,23 +52,41 @@ void helper(string s) {
     cout << "Exiting thread with x = " << x << endl;
 }
 
+int helper_task() {
+   cout << "Hello from async helper" << ++x << endl;
+   std::unique_lock<std::mutex> lck(mtxA);
+   cv.wait(lck, xGreaterThan10);
+   return ++x;
+}
+
 int main(int argc, char* argv[]) {
+    int threadCount = 2;
     if (argc > 1) {
-       cout << "Passed Arguments" << endl;
-       for (int i = 1; i < argc; i++) {
-            cout << argv[i] << endl;
-       }
+       threadCount = atoi(argv[argc - 1]);
     }
+    cout << "Thread Count " << threadCount << endl;
 
     string s = "Hello from thread";
+    vector<thread> threadList;
 
-    cout << "start test" << endl;
-    thread th(helper, s);
-    thread th2(helper, s);
+    cout << "start test" << x << endl;
+    for (int i = 0; i < threadCount; i++) {
+        thread th(helper, s);
+        threadList.push_back(move(th));
+    }
+
+    cout << "calling async function" << ++x << endl;
+    future<int> fut = async(helper_task);
+    cout << "Waiting for async to return now " << ++x << endl;
+    int ret = fut.get();
+    cout << "Async returned " << ret << endl;
     cout << "waiting in parent " << ++x << endl;
-    th.join();
-    th2.join();
-    cout << "exiting" << endl;
+    for (auto& th : threadList) {
+        th.join();
+        cout << "exit " << ++x << endl;
+    }
+
+    cout << "End Test" << endl;
 
     return 1;
 }
