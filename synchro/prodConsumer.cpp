@@ -9,7 +9,6 @@ using namespace std;
 
 #define GOOD_COUNT 500
 
-// BUGGY PROGRAM. SOLVE IT
 condition_variable cv;
 mutex mtx;
 
@@ -27,7 +26,7 @@ int main() {
             /* mark done when the last element is produced */
             if (i == GOOD_COUNT - 1) {
                done = true;
-            } 
+            }
 
             cv.notify_one();
             mtx.unlock();
@@ -52,12 +51,12 @@ int main() {
             c--;
          }
          /*
-          * If the producer is done producing all good, we 
-          * don't need to wait for any more goods.  
+          * If the producer is done producing all good, we
+          * don't need to wait for any more goods.
           */
          if (!done) {
             cv.wait(lck); // release lock for producer.
-         } 
+         }
        }
 
        cout << "Consumer Exiting\n";
