@@ -8,7 +8,7 @@
 
 using namespace std;
 
-atomic<int> x(0); 
+atomic<int> x(0);
 
 mutex mtxA;
 mutex mtxB;
@@ -26,7 +26,7 @@ void helper(string s) {
 
     int y = 0;
     while ((y = try_lock(mtxA, mtxB)) != -1) {
-        cout << "found lock " << y << " " << x++ << endl; 
+        cout << "found lock " << y << " " << x++ << endl;
         this_thread::sleep_for(chrono::seconds(1));
     }
 
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
        cout << "Passed Arguments" << endl;
        for (int i = 1; i < argc; i++) {
-            cout << argv[i] << endl; 
+            cout << argv[i] << endl;
        }
     }
 
