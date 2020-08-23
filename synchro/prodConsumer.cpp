@@ -7,41 +7,60 @@
 #include <queue>
 using namespace std;
 
+#define GOOD_COUNT 500
+
 // BUGGY PROGRAM. SOLVE IT
 condition_variable cv;
 mutex mtx;
 
 int main() {
     int c = 0;
-    atomic<bool> done(false);
+    bool done = false;
     queue<int> goods;
 
     thread producer([&]() {
-        for (int i = 0; i < 500; ++i) {
+        for (int i = 0; i < GOOD_COUNT; ++i) {
             mtx.lock();
             goods.push(i);
             c++;
 
-            if (i < 499) {
-                cv.notify_one();
-                mtx.unlock();
-            }
+            /* mark done when the last element is produced */
+            if (i == GOOD_COUNT - 1) {
+               done = true;
+            } 
+
+            cv.notify_one();
+            mtx.unlock();
         }
 
-        done = true;
-        mtx.unlock();
-        cv.notify_one();
+        cout << "Producer Exiting\n";
     });
 
     thread consumer([&]() {
-        do {
-            unique_lock<mutex> lck(mtx);
-            cv.wait(lck);
-            while (!goods.empty()) {
-                goods.pop();
-                c--;
-            }
-        } while(!done);
+       unique_lock<mutex> lck(mtx);
+       /*
+        * check the done flag and the good queue.
+        * The producer could have produced everything before
+        * the consumer arrived
+        *
+        * Take a lock on the queue before checking its state.
+        */
+       while (!done || !goods.empty()) {
+         // we have a lock on the queue.
+         while (!goods.empty()) {
+            goods.pop();
+            c--;
+         }
+         /*
+          * If the producer is done producing all good, we 
+          * don't need to wait for any more goods.  
+          */
+         if (!done) {
+            cv.wait(lck); // release lock for producer.
+         } 
+       }
+
+       cout << "Consumer Exiting\n";
     });
 
     producer.join();
