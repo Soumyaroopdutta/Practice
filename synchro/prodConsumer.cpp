@@ -21,24 +21,27 @@ int main() {
             mtx.lock();
             goods.push(i);
             c++;
-            cv.notify_one();
-            mtx.unlock();
+
+            if (i < 499) {
+                cv.notify_one();
+                mtx.unlock();
+            }
         }
 
         done = true;
-        cv.notify_one();
         mtx.unlock();
+        cv.notify_one();
     });
 
     thread consumer([&]() {
-        while (!done) {
+        do {
             unique_lock<mutex> lck(mtx);
             cv.wait(lck);
             while (!goods.empty()) {
                 goods.pop();
                 c--;
             }
-        }
+        } while(!done);
     });
 
     producer.join();
